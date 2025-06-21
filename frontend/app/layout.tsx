@@ -5,6 +5,11 @@ import "./globals.css"
 import { ErrorBoundary } from "@/components/error-boundary"
 import { ThemeProvider } from "@/components/theme-provider"
 import { Navigation } from "@/components/navigation"
+import { cn } from "@/lib/utils"
+import { Toaster } from "@/components/ui/toaster"
+import { Providers } from "@/app/providers"
+import "@rainbow-me/rainbowkit/styles.css"
+import { UmamiAnalytics } from "@/components/umami-analytics"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -40,15 +45,18 @@ export default function RootLayout({
         <link rel="icon" href="/favicon.ico" />
         <meta name="theme-color" content="#3b82f6" />
       </head>
-      <body className={inter.className}>
+      <body className={cn(
+        "min-h-screen bg-gradient-to-br from-background via-background to-muted/20",
+        inter.className
+      )}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
-          <ErrorBoundary>
-            <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
-              <Navigation />
-              {children}
-            </div>
-          </ErrorBoundary>
+          <Providers>
+            <Navigation />
+            <main className="flex-1">{children}</main>
+            <Toaster />
+          </Providers>
         </ThemeProvider>
+        <UmamiAnalytics />
       </body>
     </html>
   )

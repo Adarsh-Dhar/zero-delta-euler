@@ -1,150 +1,245 @@
 "use client"
 
-import { motion } from "framer-motion"
-import { MetricCard } from "@/components/metric-card"
-import { DashboardHeader } from "@/components/dashboard-header"
-import { useMetrics } from "@/hooks/use-metrics"
-import { formatCurrency, formatNumber } from "@/lib/utils"
-import { DollarSign, TrendingUp, Coins, Shield, AlertTriangle, BarChart3, RefreshCw } from "lucide-react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import * as React from "react"
+import { useState } from "react"
+import { ethers } from "ethers"
+import { toast } from "sonner"
+import { useAccount } from "wagmi"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { useEthersSigner } from "@/hooks/useEthersSigner"
+import { useMetrics } from "@/hooks/use-metrics"
+import { DepositModal } from "@/components/deposit-modal"
+import { WithdrawModal } from "@/components/withdraw-modal"
+import { formatCurrency, formatNumber } from "@/lib/utils"
+import { REBALANCER_ABI, OPERATOR_ABI } from "@/lib/contract/abi"
+import { REBALANCER_ADDRESS, OPERATOR_ADDRESS } from "@/lib/contract/address"
 
-export default function Dashboard() {
-  const { data, isLoading, error, lastUpdated, refresh } = useMetrics()
+export default function DashboardPage() {
+  const { isConnected } = useAccount()
+  const signer = useEthersSigner()
+  const { data: metrics, isLoading, error, refresh } = useMetrics()
+  const [isDepositOpen, setDepositOpen] = useState(false)
+  const [isWithdrawOpen, setWithdrawOpen] = useState(false)
+  const [newVaultAddress, setNewVaultAddress] = useState("")
+  const [newOwnerAddress, setNewOwnerAddress] = useState("")
+  const [isProcessing, setIsProcessing] = useState(false)
 
-  if (error) {
-    return (
-      <div className="min-h-screen flex items-center justify-center p-4">
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.3 }}
-        >
-          <Card className="w-full max-w-md border-destructive/50">
-            <CardHeader className="text-center">
-              <div className="mx-auto mb-4 h-12 w-12 rounded-full bg-destructive/10 flex items-center justify-center">
-                <AlertTriangle className="h-6 w-6 text-destructive" />
-              </div>
-              <CardTitle className="text-xl text-destructive">Connection Error</CardTitle>
+  const rebalancerContract = signer
+    ? new ethers.Contract(REBALANCER_ADDRESS, REBALANCER_ABI, signer)
+    : null
+  const operatorContract = signer
+    ? new ethers.Contract(OPERATOR_ADDRESS, OPERATOR_ABI, signer)
+    : null
+
+  const handleAction = async (
+    action: () => Promise<any>,
+    actionName: string
+  ) => {
+    if (!signer) {
+      toast.error("Please connect your wallet first.")
+      return
+    }
+
+    setIsProcessing(true)
+    const toastId = toast.loading(`Processing ${actionName}...`)
+    try {
+      const tx = await action()
+      await tx.wait()
+      toast.success(`${actionName} successful!`, { id: toastId })
+      refresh()
+    } catch (err: any) {
+      console.error(`${actionName} failed`, err)
+      toast.error(err.reason || `${actionName} failed. Check console.`, {
+        id: toastId,
+      })
+    } finally {
+      setIsProcessing(false)
+    }
+  }
+
+  const handleRebalance = () =>
+    handleAction(() => rebalancerContract!.rebalance(), "Rebalance")
+  const handleSetVault = () =>
+    handleAction(
+      () => operatorContract!.setVault(newVaultAddress),
+      "Set Vault"
+    )
+  const handleRenounceOwnership = () =>
+    handleAction(
+      () => operatorContract!.renounceOwnership(),
+      "Renounce Ownership"
+    )
+  const handleTransferOwnership = () =>
+    handleAction(
+      () => operatorContract!.transferOwnership(newOwnerAddress),
+      "Transfer Ownership"
+    )
+
+  return (
+    <div className="container mx-auto py-12 px-4">
+      <header className="mb-8">
+        <h1 className="text-4xl font-bold mb-2">Integration Dashboard</h1>
+        <p className="text-muted-foreground">
+          A centralized hub for testing all frontend and smart contract
+          integrations.
+        </p>
+      </header>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div className="md:col-span-1 space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Vault Actions</CardTitle>
             </CardHeader>
-            <CardContent className="text-center space-y-4">
-              <p className="text-muted-foreground">{error}</p>
-              <Button onClick={refresh} variant="outline" className="w-full">
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Try Again
+            <CardContent className="flex flex-col space-y-2">
+              <Button
+                onClick={() => setDepositOpen(true)}
+                disabled={!isConnected || isProcessing}
+              >
+                Deposit
+              </Button>
+              <Button
+                onClick={() => setWithdrawOpen(true)}
+                variant="outline"
+                disabled={!isConnected || isProcessing}
+              >
+                Withdraw
               </Button>
             </CardContent>
           </Card>
-        </motion.div>
-      </div>
-    )
-  }
-
-  return (
-    <main className="container mx-auto px-4 py-8 max-w-7xl">
-      <DashboardHeader onRefresh={refresh} isRefreshing={isLoading} lastUpdated={lastUpdated || undefined} />
-
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.5, delay: 0.2 }}
-        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
-      >
-        <MetricCard
-          title="Total Supply"
-          value={data ? formatCurrency(data.totalSupply) : "Loading..."}
-          subtitle="USDC"
-          icon={DollarSign}
-          trend="up"
-          trendValue="+2.5%"
-          isLoading={isLoading}
-          className="col-span-1"
-        />
-
-        <MetricCard
-          title="Total Assets"
-          value={data ? formatCurrency(data.totalAssets) : "Loading..."}
-          subtitle="USDC"
-          icon={TrendingUp}
-          trend="up"
-          trendValue="+1.8%"
-          isLoading={isLoading}
-          className="col-span-1"
-        />
-
-        <MetricCard
-          title="ETH Borrowed"
-          value={data ? `${formatNumber(data.ethBorrowed, 4)} ETH` : "Loading..."}
-          subtitle="Ethereum"
-          icon={Coins}
-          trend="neutral"
-          trendValue="0.0%"
-          isLoading={isLoading}
-          className="col-span-1"
-        />
-
-        <MetricCard
-          title="Collateral"
-          value={data ? formatCurrency(data.collateral) : "Loading..."}
-          subtitle="USDC"
-          icon={Shield}
-          trend="up"
-          trendValue="+0.9%"
-          isLoading={isLoading}
-          className="col-span-1"
-        />
-
-        <MetricCard
-          title="Debt"
-          value={data ? formatCurrency(data.debt) : "Loading..."}
-          subtitle="USDC"
-          icon={AlertTriangle}
-          trend="down"
-          trendValue="-0.3%"
-          isLoading={isLoading}
-          className="col-span-1 md:col-span-2 lg:col-span-1"
-        />
-
-        <MetricCard
-          title="Last Rebalance Price"
-          value={data ? formatCurrency(data.lastRebalancePrice) : "Loading..."}
-          subtitle="USDC"
-          icon={BarChart3}
-          trend="up"
-          trendValue="+0.1%"
-          isLoading={isLoading}
-          className="col-span-1 md:col-span-2 lg:col-span-1"
-        />
-
-        <MetricCard
-          title="Rebalance Count"
-          value={data ? formatNumber(data.rebalanceCount, 0) : "Loading..."}
-          subtitle="Total Operations"
-          icon={RefreshCw}
-          trend="up"
-          trendValue="+1"
-          isLoading={isLoading}
-          className="col-span-1 md:col-span-2 lg:col-span-2"
-        />
-      </motion.div>
-
-      {/* Status indicator */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.4 }}
-        className="mt-8 flex items-center justify-center"
-      >
-        <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-          <div
-            className={`h-2 w-2 rounded-full ${
-              error ? "bg-red-500" : isLoading ? "bg-yellow-500 animate-pulse" : "bg-green-500"
-            }`}
-          />
-          <span>{error ? "Disconnected" : isLoading ? "Updating..." : "Connected"}</span>
-          <span className="text-xs">• Auto-refresh every 15s</span>
         </div>
-      </motion.div>
-    </main>
+
+        <div className="md:col-span-2 space-y-6">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle>Live Metrics</CardTitle>
+              <Button
+                onClick={refresh}
+                size="sm"
+                variant="outline"
+                disabled={isLoading}
+              >
+                Refresh
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {error && <p className="text-red-500">{error}</p>}
+              {isLoading && <p>Loading metrics...</p>}
+              {metrics && (
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <p>
+                    <strong>Total Supply:</strong>{" "}
+                    {formatCurrency(metrics.totalSupply)}
+                  </p>
+                  <p>
+                    <strong>Total Assets:</strong>{" "}
+                    {formatCurrency(metrics.totalAssets)}
+                  </p>
+                  <p>
+                    <strong>ETH Borrowed:</strong>{" "}
+                    {formatNumber(metrics.ethBorrowed, 6)}
+                  </p>
+                  <p>
+                    <strong>Collateral:</strong>{" "}
+                    {formatCurrency(metrics.collateral)}
+                  </p>
+                  <p>
+                    <strong>Debt:</strong> {formatCurrency(metrics.debt)}
+                  </p>
+                  <p>
+                    <strong>Rebalance Price:</strong>{" "}
+                    {formatCurrency(metrics.lastRebalancePrice)}
+                  </p>
+                  <p>
+                    <strong>Rebalance Count:</strong> {metrics.rebalanceCount}
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Contract Interactions</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-2">
+                <Label>Operator Actions</Label>
+                <Button
+                  onClick={handleRebalance}
+                  className="w-full"
+                  disabled={!isConnected || isProcessing}
+                >
+                  Rebalance
+                </Button>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="vaultAddress">Set Vault Address</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="vaultAddress"
+                    placeholder="0x..."
+                    value={newVaultAddress}
+                    onChange={(e) => setNewVaultAddress(e.target.value)}
+                  />
+                  <Button
+                    onClick={handleSetVault}
+                    disabled={!isConnected || isProcessing || !newVaultAddress}
+                  >
+                    Set
+                  </Button>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Ownership</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="ownerAddress"
+                    placeholder="0x..."
+                    value={newOwnerAddress}
+                    onChange={(e) => setNewOwnerAddress(e.target.value)}
+                  />
+                  <Button
+                    onClick={handleTransferOwnership}
+                    disabled={!isConnected || isProcessing || !newOwnerAddress}
+                  >
+                    Transfer
+                  </Button>
+                </div>
+                <Button
+                  onClick={handleRenounceOwnership}
+                  variant="destructive"
+                  className="w-full"
+                  disabled={!isConnected || isProcessing}
+                >
+                  Renounce Ownership
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+      <DepositModal
+        isOpen={isDepositOpen}
+        onClose={() => setDepositOpen(false)}
+        onSuccess={() => {
+          setDepositOpen(false)
+          refresh()
+        }}
+      />
+      <WithdrawModal
+        isOpen={isWithdrawOpen}
+        onClose={() => setWithdrawOpen(false)}
+        onSuccess={() => {
+          setWithdrawOpen(false)
+          refresh()
+        }}
+      />
+    </div>
   )
 }

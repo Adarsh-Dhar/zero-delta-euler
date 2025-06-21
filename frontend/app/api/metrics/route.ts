@@ -1,116 +1,124 @@
 import { NextResponse } from "next/server"
-import { ethers } from "ethers"
-import type { MetricsData, ApiResponse } from "@/lib/types"
+import { ethers, Result } from "ethers"
+import { OPERATOR_ABI } from "@/lib/contract/abi/operator"
+import { DEFAULT_NEUTRAL_VAULT_ABI } from "@/lib/contract/abi/defaultNeutralVault"
+import { REBALANCER_ABI } from "@/lib/contract/abi/rebalancer"
+import {
+  OPERATOR_ADDRESS,
+  VAULT_ADDRESS,
+  REBALANCER_ADDRESS,
+  USDC_DECIMALS,
+  WETH_DECIMALS,
+} from "@/lib/contract/address"
+import type { ApiResponse, MetricsData } from "@/lib/types"
 
-// Contract ABI - minimal interface for the required functions
-const CONTRACT_ABI = [
-  "function totalSupply() view returns (uint256)",
-  "function totalAssets() view returns (uint256)",
-  "function getEthBorrowed() view returns (uint256)",
-  "function getCollateral() view returns (uint256)",
-  "function getDebt() view returns (uint256)",
-  "function lastRebalancePrice() view returns (uint256)",
-  "function rebalanceCount() view returns (uint256)",
-]
+type HealthMetrics = {
+  currentLTV: bigint
+  collateralValue: bigint
+  debtValue: bigint
+  liquidityValue: bigint
+  delta: bigint
+}
 
-// Add just below the ABI & env var block
-type CallResult<T> = { ok: true; value: T } | { ok: false }
+type CallResult<T> = { ok: true; value: T } | { ok: false; error: any }
 
 async function safeCall<T>(promise: Promise<T>): Promise<CallResult<T>> {
   try {
     const value = await promise
     return { ok: true, value }
-  } catch (err) {
-    console.warn("[metrics] call reverted →", (err as Error).message)
-    return { ok: false }
+  } catch (error) {
+    console.error("Safe call failed", error)
+    return { ok: false, error }
   }
 }
 
 // Environment variables
-const RPC_URL = process.env.RPC_URL
-const CONTRACT_ADDRESS = process.env.CONTRACT_ADDRESS
-const USDC_DECIMALS = 6
-const ETH_DECIMALS = 18
+const SEPOLIA_RPC_URL =
+  process.env.SEPOLIA_RPC_URL || "https://rpc.sepolia.org"
+const provider = new ethers.JsonRpcProvider(SEPOLIA_RPC_URL)
 
-if (!RPC_URL) {
-  throw new Error("RPC_URL environment variable is required")
-}
-
-if (!CONTRACT_ADDRESS) {
-  throw new Error("CONTRACT_ADDRESS environment variable is required")
-}
-
-// Initialize provider and contract
-const provider = new ethers.JsonRpcProvider(RPC_URL)
-const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, provider)
+// Contract instances
+const operatorContract = new ethers.Contract(
+  OPERATOR_ADDRESS,
+  OPERATOR_ABI,
+  provider
+)
+const vaultContract = new ethers.Contract(
+  VAULT_ADDRESS,
+  DEFAULT_NEUTRAL_VAULT_ABI,
+  provider
+)
+const rebalancerContract = new ethers.Contract(
+  REBALANCER_ADDRESS,
+  REBALANCER_ABI,
+  provider
+)
 
 function formatUSDC(value: bigint): number {
-  return Number(ethers.formatUnits(value, USDC_DECIMALS))
+  return parseFloat(ethers.formatUnits(value, USDC_DECIMALS))
 }
 
 function formatETH(value: bigint): number {
-  return Number(ethers.formatUnits(value, ETH_DECIMALS))
+  return parseFloat(ethers.formatUnits(value, WETH_DECIMALS))
 }
 
 export async function GET(): Promise<NextResponse<ApiResponse<MetricsData>>> {
-  try {
-    // Replace the current multi-call block inside GET()
-    const [
-      totalSupplyRes,
-      totalAssetsRes,
-      ethBorrowedRes,
-      collateralRes,
-      debtRes,
-      lastRebalancePriceRes,
-      rebalanceCountRes,
-    ] = await Promise.all([
-      safeCall(contract.totalSupply()),
-      safeCall(contract.totalAssets()),
-      safeCall(contract.getEthBorrowed?.() ?? Promise.reject("getEthBorrowed() not found")),
-      safeCall(contract.getCollateral?.() ?? Promise.reject("getCollateral() not found")),
-      safeCall(contract.getDebt?.() ?? Promise.reject("getDebt() not found")),
-      safeCall(contract.lastRebalancePrice()),
-      safeCall(contract.rebalanceCount()),
-    ])
+  const calls = [
+    safeCall<bigint>(vaultContract.totalSupply()),
+    safeCall<bigint>(vaultContract.totalAssets()),
+    safeCall<bigint>(operatorContract.ethBorrowed()),
+    safeCall<Result>(operatorContract.getHealthMetrics()),
+    safeCall<bigint>(rebalancerContract.lastRebalancePrice()),
+    safeCall<bigint>(rebalancerContract.rebalanceCount()),
+  ]
 
-    // Build the `metricsData` using available values and sane fallbacks.
-    const metricsData: MetricsData = {
-      totalSupply: totalSupplyRes.ok ? formatUSDC(totalSupplyRes.value as bigint) : 0,
-      totalAssets: totalAssetsRes.ok ? formatUSDC(totalAssetsRes.value as bigint) : 0,
-      ethBorrowed: ethBorrowedRes.ok ? formatETH(ethBorrowedRes.value as bigint) : 0,
-      collateral: collateralRes.ok ? formatUSDC(collateralRes.value as bigint) : 0,
-      debt: debtRes.ok ? formatUSDC(debtRes.value as bigint) : 0,
-      lastRebalancePrice: lastRebalancePriceRes.ok ? formatUSDC(lastRebalancePriceRes.value as bigint) : 0,
-      rebalanceCount: rebalanceCountRes.ok ? Number(rebalanceCountRes.value) : 0,
-      timestamp: Date.now(),
-    }
+  const [
+    totalSupplyResult,
+    totalAssetsResult,
+    ethBorrowedResult,
+    healthMetricsResult,
+    lastRebalancePriceResult,
+    rebalanceCountResult,
+  ] = await Promise.all(calls)
 
-    return NextResponse.json({
-      success: true,
-      data: metricsData,
-      partial: !(
-        totalSupplyRes.ok &&
-        totalAssetsRes.ok &&
-        ethBorrowedRes.ok &&
-        collateralRes.ok &&
-        debtRes.ok &&
-        lastRebalancePriceRes.ok &&
-        rebalanceCountRes.ok
-      ),
-    })
-  } catch (error) {
-    console.error("Error fetching metrics from contract:", error)
+  const partial =
+    !totalSupplyResult.ok ||
+    !totalAssetsResult.ok ||
+    !ethBorrowedResult.ok ||
+    !healthMetricsResult.ok ||
+    !lastRebalancePriceResult.ok ||
+    !rebalanceCountResult.ok
 
-    const errorMessage = error instanceof Error ? error.message : "Failed to fetch metrics from smart contract"
+  const healthMetrics: HealthMetrics = healthMetricsResult.ok
+    ? (healthMetricsResult.value as unknown as HealthMetrics)
+    : {
+        currentLTV: 0n,
+        collateralValue: 0n,
+        debtValue: 0n,
+        liquidityValue: 0n,
+        delta: 0n,
+      }
 
-    return NextResponse.json(
-      {
-        success: false,
-        error: errorMessage,
-      },
-      { status: 500 },
-    )
+  const data: MetricsData = {
+    totalSupply: totalSupplyResult.ok ? formatUSDC(totalSupplyResult.value) : 0,
+    totalAssets: totalAssetsResult.ok ? formatUSDC(totalAssetsResult.value) : 0,
+    ethBorrowed: ethBorrowedResult.ok ? formatETH(ethBorrowedResult.value) : 0,
+    collateral: formatUSDC(healthMetrics.collateralValue),
+    debt: formatUSDC(healthMetrics.debtValue),
+    lastRebalancePrice: lastRebalancePriceResult.ok
+      ? formatETH(lastRebalancePriceResult.value)
+      : 0,
+    rebalanceCount: rebalanceCountResult.ok
+      ? Number(rebalanceCountResult.value)
+      : 0,
+    timestamp: Date.now(),
   }
+
+  return NextResponse.json({
+    data,
+    success: true,
+    partial,
+  })
 }
 
 // Enable Edge Runtime for better performance

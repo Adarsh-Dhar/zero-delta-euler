@@ -4,6 +4,7 @@ import * as React from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { motion } from "framer-motion"
+import { ConnectButton } from "@rainbow-me/rainbowkit"
 import { Button } from "@/components/ui/button"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { Activity, Menu, X } from "lucide-react"
@@ -13,10 +14,7 @@ export function Navigation() {
   const pathname = usePathname()
   const [isOpen, setIsOpen] = React.useState(false)
 
-  const navItems = [
-    { href: "/", label: "Home" },
-    { href: "/dashboard", label: "Dashboard" },
-  ]
+  const navItems: { href: string; label: string }[] = []
 
   return (
     <nav className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -31,7 +29,7 @@ export function Navigation() {
             >
               <Activity className="h-4 w-4" />
             </motion.div>
-            <span className="font-bold text-xl">DeFi Dashboard</span>
+            <span className="font-bold text-xl">Zero-Delta Euler</span>
           </Link>
 
           {/* Desktop Navigation */}
@@ -42,7 +40,9 @@ export function Navigation() {
                 href={item.href}
                 className={cn(
                   "text-sm font-medium transition-colors hover:text-primary relative",
-                  pathname === item.href ? "text-primary" : "text-muted-foreground",
+                  pathname === item.href
+                    ? "text-primary"
+                    : "text-muted-foreground"
                 )}
               >
                 {item.label}
@@ -57,13 +57,23 @@ export function Navigation() {
               </Link>
             ))}
             <ThemeToggle />
+            <ConnectButton />
           </div>
 
           {/* Mobile Navigation Toggle */}
           <div className="md:hidden flex items-center space-x-2">
             <ThemeToggle />
-            <Button variant="ghost" size="icon" onClick={() => setIsOpen(!isOpen)} className="h-9 w-9">
-              {isOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setIsOpen(!isOpen)}
+              className="h-9 w-9"
+            >
+              {isOpen ? (
+                <X className="h-4 w-4" />
+              ) : (
+                <Menu className="h-4 w-4" />
+              )}
             </Button>
           </div>
         </div>
@@ -85,12 +95,17 @@ export function Navigation() {
                   onClick={() => setIsOpen(false)}
                   className={cn(
                     "text-sm font-medium transition-colors hover:text-primary px-2 py-1 rounded-md",
-                    pathname === item.href ? "text-primary bg-primary/10" : "text-muted-foreground hover:bg-accent",
+                    pathname === item.href
+                      ? "text-primary bg-primary/10"
+                      : "text-muted-foreground hover:bg-accent"
                   )}
                 >
                   {item.label}
                 </Link>
               ))}
+              <div className="pt-2 border-t mt-2">
+                <ConnectButton />
+              </div>
             </div>
           </motion.div>
         )}

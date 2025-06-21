@@ -2,8 +2,7 @@
 
 import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
-import { RefreshCw, Activity } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { RefreshCw, Calendar, Clock } from "lucide-react"
 
 interface DashboardHeaderProps {
   onRefresh: () => void
@@ -13,48 +12,33 @@ interface DashboardHeaderProps {
 
 export function DashboardHeader({ onRefresh, isRefreshing, lastUpdated }: DashboardHeaderProps) {
   return (
-    <motion.div
+    <motion.header
       initial={{ opacity: 0, y: -20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
-      className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8"
+      className="mb-8 flex flex-col md:flex-row items-center justify-between space-y-4 md:space-y-0"
     >
-      <div className="flex items-center space-x-3">
-        <motion.div
-          animate={{ rotate: isRefreshing ? 360 : 0 }}
-          transition={{ duration: 1, repeat: isRefreshing ? Number.POSITIVE_INFINITY : 0, ease: "linear" }}
-        >
-          <Activity className="h-8 w-8 text-primary" />
-        </motion.div>
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">DeFi Dashboard</h1>
-          <p className="text-muted-foreground">Real-time protocol metrics and analytics</p>
-        </div>
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">Strategy Dashboard</h1>
+        <p className="text-muted-foreground">
+          Real-time metrics for the Zero-Delta Euler strategy.
+        </p>
       </div>
 
       <div className="flex items-center space-x-4">
         {lastUpdated && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.3 }}
-            className="text-sm text-muted-foreground"
-          >
-            Last updated: {lastUpdated.toLocaleTimeString()}
-          </motion.div>
+          <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+            <Calendar className="h-4 w-4" />
+            <span>{lastUpdated.toLocaleDateString()}</span>
+            <Clock className="h-4 w-4" />
+            <span>{lastUpdated.toLocaleTimeString()}</span>
+          </div>
         )}
-
-        <Button
-          onClick={onRefresh}
-          disabled={isRefreshing}
-          variant="outline"
-          size="sm"
-          className="bg-background text-foreground hover:bg-accent hover:text-accent-foreground"
-        >
-          <RefreshCw className={cn("h-4 w-4 mr-2", isRefreshing && "animate-spin")} />
+        <Button onClick={onRefresh} variant="outline" size="sm" disabled={isRefreshing}>
+          <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? "animate-spin" : ""}`} />
           Refresh
         </Button>
       </div>
-    </motion.div>
+    </motion.header>
   )
 }
