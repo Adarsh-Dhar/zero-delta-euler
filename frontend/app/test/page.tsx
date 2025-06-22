@@ -88,34 +88,41 @@ export default function TestPage() {
       const amount = parseUnits(depositAmount, USDC_DECIMALS)
       console.log("amount", amount)
       const deadline = BigInt(Math.floor(Date.now() / 1000) + 60 * 20) // 20 minutes from now
+      console.log("deadline", deadline)
 
+      if (!address) {
+        throw new Error('Address is required for permit signing');
+      }
+      
       const typedData = {
         domain: {
-            name: 'USD Coin', // For USDC on Sepolia. May need to be fetched for other networks.
-            version: '2', // For USDC on Sepolia.
-            chainId: chain.id,
-            verifyingContract: USDC_ADDRESS,
+          name: 'USDC',
+          version: '2',
+          chainId: chain.id,
+          verifyingContract: USDC_ADDRESS,
         },
         types: {
-            Permit: [
-                { name: "owner", type: "address" },
-                { name: "spender", type: "address" },
-                { name: "value", type: "uint256" },
-                { name: "nonce", type: "uint256" },
-                { name: "deadline", type: "uint256" },
-            ],
+          Permit: [
+            { name: "owner", type: "address" },
+            { name: "spender", type: "address" },
+            { name: "value", type: "uint256" },
+            { name: "nonce", type: "uint256" },
+            { name: "deadline", type: "uint256" },
+          ],
         },
         primaryType: 'Permit',
         message: {
-            owner: address,
-            spender: VAULT_ADDRESS,
-            value: amount,
-            nonce: nonce,
-            deadline: deadline,
+          owner: address, // Now TypeScript knows address is defined
+          spender: VAULT_ADDRESS,
+          value: amount,
+          nonce: nonce as bigint,
+          deadline: deadline,
         },
-      } as const
+      } as const;
+      console.log("typedData", typedData)
 
-      const signature = await signTypedDataAsync(typedData as any)
+      const signature = await signTypedDataAsync(typedData)
+      console.log("signature", signature)
       
       const { v, r, s } = hexToSignature(signature)
 
