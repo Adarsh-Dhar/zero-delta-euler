@@ -142,12 +142,15 @@ export default function TestPage() {
 
   const handleWithdraw = async () => {
     if (!withdrawAmount) return
+    console.log("handleWithdraw", withdrawAmount, address)
     try {
+      const shares = parseUnits(withdrawAmount, 18) // Vault shares have 18 decimals
+      console.log("shares", shares)
       const hash = await writeContractAsync({
         abi: DEFAULT_NEUTRAL_VAULT_ABI,
         address: VAULT_ADDRESS,
         functionName: "withdraw",
-        args: [parseUnits(withdrawAmount, 18)], // Vault shares have 18 decimals
+        args: [shares],
       })
       setWithdrawTxHash(hash)
       toast.info("Withdraw transaction sent")
@@ -294,7 +297,7 @@ export default function TestPage() {
                             type="text"
                             value={withdrawAmount}
                             onChange={(e) => setWithdrawAmount(e.target.value)}
-                            placeholder="Enter shares amount"
+                            placeholder="Enter share amount"
                             className="bg-gray-700 text-white p-2 rounded-md"
                         />
                         <div className="flex gap-4">
