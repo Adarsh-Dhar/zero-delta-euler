@@ -39,6 +39,9 @@ export function DepositModal({ isOpen, onClose, onSuccess }: DepositModalProps) 
   }, [isOpen])
 
   const handleDeposit = async () => {
+    console.log("handleDeposit", isOpen)
+    try {
+      console.log("handleDeposit", isConnected, signer, address)
     if (!isConnected || !signer || !address) {
       toast.error("Please connect your wallet first.")
       return
@@ -51,6 +54,7 @@ export function DepositModal({ isOpen, onClose, onSuccess }: DepositModalProps) 
 
     try {
       const usdcAmount = ethers.parseUnits(amount, USDC_DECIMALS)
+      console.log("usdcAmount", usdcAmount)
       const usdcContract = new ethers.Contract(USDC_ADDRESS, ERC20_ABI, signer)
       const vaultContract = new ethers.Contract(
         VAULT_ADDRESS,
@@ -75,6 +79,8 @@ export function DepositModal({ isOpen, onClose, onSuccess }: DepositModalProps) 
 
       toast.loading("Depositing with permit...", { id: toastId })
       const { v, r, s, deadline } = signature
+
+      console.log("depositWithPermit", usdcAmount, deadline, v, r, s)
       const depositTx = await vaultContract.depositWithPermit(
         usdcAmount,
         deadline,
@@ -93,6 +99,12 @@ export function DepositModal({ isOpen, onClose, onSuccess }: DepositModalProps) 
     } finally {
       setIsProcessing(false)
     }
+  } catch (error) {
+    console.error("Deposit failed", error)
+    toast.error("Deposit failed. Please check the console.", { id: "deposit-error" })
+  } finally {
+    setIsProcessing(false)
+  }
   }
 
   return (

@@ -1,19 +1,20 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from "wagmi"
-import { formatUnits, parseUnits } from "viem"
+import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt, useSignTypedData } from "wagmi"
+import { formatUnits, parseUnits, hexToSignature } from "viem"
 import { DEFAULT_NEUTRAL_VAULT_ABI, ERC20_ABI, OPERATOR_ABI, REBALANCER_ABI } from "@/lib/contract/abi"
 import { VAULT_ADDRESS, USDC_ADDRESS, USDC_DECIMALS, OPERATOR_ADDRESS, REBALANCER_ADDRESS } from "@/lib/contract/address"
 import { toast } from "sonner"
+import { sepolia } from "viem/chains"
 
 export default function TestPage() {
-  const { address } = useAccount()
+  const { address, chain } = useAccount()
   const { writeContractAsync } = useWriteContract()
+  const { signTypedDataAsync } = useSignTypedData()
 
   const [depositAmount, setDepositAmount] = useState("")
   const [withdrawAmount, setWithdrawAmount] = useState("")
-  const [approveTxHash, setApproveTxHash] = useState<`0x${string}`>()
   const [depositTxHash, setDepositTxHash] = useState<`0x${string}`>()
   const [withdrawTxHash, setWithdrawTxHash] = useState<`0x${string}`>()
   const [rebalanceTxHash, setRebalanceTxHash] = useState<`0x${string}`>()
@@ -57,9 +58,16 @@ export default function TestPage() {
     }
   })
 
-  const { isLoading: isApproving, isSuccess: isApproved } = useWaitForTransactionReceipt({
-      hash: approveTxHash,
-  })
+  const { data: nonce, refetch: refetchNonce } = useReadContract({
+    abi: ERC20_ABI,
+    address: USDC_ADDRESS,
+    functionName: "nonces",
+    args: [address!],
+    account: address,
+    query: {
+        enabled: !!address,
+    }
+    })
 
   const { isLoading: isDepositing, isSuccess: isDeposited } = useWaitForTransactionReceipt({
       hash: depositTxHash,
@@ -73,31 +81,49 @@ export default function TestPage() {
       hash: rebalanceTxHash,
   })
 
-  const handleApprove = async () => {
-    if (!depositAmount) return
-    try {
-      const hash = await writeContractAsync({
-        abi: ERC20_ABI,
-        address: USDC_ADDRESS,
-        functionName: "approve",
-        args: [VAULT_ADDRESS, parseUnits(depositAmount, USDC_DECIMALS)],
-      })
-      setApproveTxHash(hash)
-      toast.info("Approval transaction sent")
-    } catch (error) {
-      console.error("Approval failed", error)
-      toast.error("Approval failed")
-    }
-  }
-
   const handleDeposit = async () => {
-    if (!depositAmount) return
+    const chain = sepolia
+    console.log("handleDeposit", depositAmount, address, nonce, chain)
     try {
+      const amount = parseUnits(depositAmount, USDC_DECIMALS)
+      console.log("amount", amount)
+      const deadline = BigInt(Math.floor(Date.now() / 1000) + 60 * 20) // 20 minutes from now
+
+      const typedData = {
+        domain: {
+            name: 'USD Coin', // For USDC on Sepolia. May need to be fetched for other networks.
+            version: '2', // For USDC on Sepolia.
+            chainId: chain.id,
+            verifyingContract: USDC_ADDRESS,
+        },
+        types: {
+            Permit: [
+                { name: "owner", type: "address" },
+                { name: "spender", type: "address" },
+                { name: "value", type: "uint256" },
+                { name: "nonce", type: "uint256" },
+                { name: "deadline", type: "uint256" },
+            ],
+        },
+        primaryType: 'Permit',
+        message: {
+            owner: address,
+            spender: VAULT_ADDRESS,
+            value: amount,
+            nonce: nonce,
+            deadline: deadline,
+        },
+      } as const
+
+      const signature = await signTypedDataAsync(typedData as any)
+      
+      const { v, r, s } = hexToSignature(signature)
+
       const hash = await writeContractAsync({
         abi: DEFAULT_NEUTRAL_VAULT_ABI,
         address: VAULT_ADDRESS,
-        functionName: "deposit",
-        args: [parseUnits(depositAmount, USDC_DECIMALS)],
+        functionName: "depositWithPermit",
+        args: [amount, deadline, v, r, s],
       })
       setDepositTxHash(hash)
       toast.info("Deposit transaction sent")
@@ -140,22 +166,15 @@ export default function TestPage() {
   }
 
   useEffect(() => {
-    if (isApproved) {
-        toast.success("Approval successful!")
-        refetchAllowance()
-        setApproveTxHash(undefined)
-    }
-  }, [isApproved, refetchAllowance])
-
-  useEffect(() => {
     if (isDeposited) {
         toast.success("Deposit successful!")
         setDepositAmount("")
         refetchVaultMetrics()
         refetchAllowance()
+        refetchNonce()
         setDepositTxHash(undefined)
     }
-  }, [isDeposited, refetchAllowance, refetchVaultMetrics])
+  }, [isDeposited, refetchAllowance, refetchVaultMetrics, refetchNonce])
 
   useEffect(() => {
     if (isWithdrawn) {
@@ -180,11 +199,6 @@ export default function TestPage() {
   const metrics = vaultMetrics as [bigint, bigint, bigint, bigint, boolean, boolean] | undefined
   const health = healthMetrics as [bigint, bigint, bigint, bigint, bigint] | undefined
   const rebalance = rebalanceStatus as [boolean, bigint, bigint, bigint, bigint, bigint] | undefined
-
-  const needsApproval =
-    typeof allowance === 'bigint' &&
-    depositAmount &&
-    allowance < parseUnits(depositAmount, USDC_DECIMALS)
 
   return (
     <div className="container mx-auto p-4 bg-gray-900 text-white min-h-screen">
@@ -256,15 +270,6 @@ export default function TestPage() {
                             className="bg-gray-700 text-white p-2 rounded-md"
                         />
                         <div className="flex gap-4">
-                            {needsApproval ? (
-                            <button
-                                onClick={handleApprove}
-                                disabled={!depositAmount || isApproving}
-                                className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded disabled:opacity-50"
-                            >
-                                {isApproving ? "Approving..." : "Approve USDC"}
-                            </button>
-                            ) : (
                             <button
                                 onClick={handleDeposit}
                                 disabled={!depositAmount || isDepositing}
@@ -272,7 +277,6 @@ export default function TestPage() {
                             >
                                 {isDepositing ? "Depositing..." : "Deposit USDC"}
                             </button>
-                            )}
                         </div>
                     </div>
                 </div>
