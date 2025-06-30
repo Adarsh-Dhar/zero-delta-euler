@@ -1,0 +1,19 @@
+? tighten up getLimits bounds
+
+TESTING
+
+* when exchange rate in vaults != 1
+* better coverage of swaps done via hooks
+
+IDEAS
+
+* Currently we have only been supporting stable-stable pairs
+  * What extra considerations would there be for floating pairs?
+* Automatically re-invest fees? There are a few options:
+  * Don't do anything: Re-deploying probably isn't a huge deal
+  * Increase the reserves by the fee amount
+  * Increase the reserves by the extra amount of possible leverage supported by the new fee
+  * Apply fees to a super-concentrated middle section of the curve (needs R&D)
+* Could current reserves be calculated dynamically based on balances/debts/debt limits?
+  * I guess you would lose a chunk of interest to arbitrage
+  * Donation attacks?

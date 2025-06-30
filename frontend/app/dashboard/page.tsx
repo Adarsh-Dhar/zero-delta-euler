@@ -11,6 +11,13 @@ import { toast } from "sonner"
 import { DEFAULT_NEUTRAL_VAULT_ABI, ERC20_ABI, OPERATOR_ABI, REBALANCER_ABI } from "@/lib/contract/abi"
 import { VAULT_ADDRESS, USDC_ADDRESS, USDC_DECIMALS, OPERATOR_ADDRESS, REBALANCER_ADDRESS } from "@/lib/contract/address"
 import { sepolia } from "viem/chains"
+import { createPublicClient, http } from "viem"
+
+// Setup viem public client for transaction receipt polling
+const publicClient = createPublicClient({
+  chain: sepolia,
+  transport: http(),
+})
 
 export default function DashboardPage() {
   const { address, isConnected, chain } = useAccount()
@@ -74,52 +81,72 @@ export default function DashboardPage() {
   const [newOwnerAddress, setNewOwnerAddress] = useState("")
   const [isProcessing, setIsProcessing] = useState(false)
 
-  // Deposit
-  const handleDeposit = async () => {
+  // Approve USDC for vault
+  const handleApprove = async (amount: bigint) => {
+    try {
+      const hash = await writeContractAsync({
+        abi: ERC20_ABI,
+        address: USDC_ADDRESS,
+        functionName: "approve",
+        args: [VAULT_ADDRESS, amount],
+      })
+      return hash
+    } catch (error) {
+      console.error("Approval failed", error)
+      toast.error("USDC approval failed")
+      throw error
+    }
+  }
+
+  // Deposit USDC to vault
+  const handleDeposit = async (amount: bigint) => {
+    try {
+      const hash = await writeContractAsync({
+        abi: DEFAULT_NEUTRAL_VAULT_ABI,
+        address: VAULT_ADDRESS,
+        functionName: "deposit",
+        args: [amount],
+      })
+      return hash
+    } catch (error) {
+      console.error("Deposit failed", error)
+      toast.error("Deposit failed")
+      throw error
+    }
+  }
+
+  // Combined approve and deposit flow
+  const handleApproveAndDeposit = async () => {
     if (!depositAmount) return
     try {
       setIsProcessing(true)
       const amount = parseUnits(depositAmount, USDC_DECIMALS)
-      const deadline = BigInt(Math.floor(Date.now() / 1000) + 60 * 20)
-      if (!address) throw new Error("Address required for permit")
-      const typedData = {
-        domain: {
-          name: "USDC",
-          version: "2",
-          chainId: sepolia.id,
-          verifyingContract: USDC_ADDRESS,
-        },
-        types: {
-          Permit: [
-            { name: "owner", type: "address" },
-            { name: "spender", type: "address" },
-            { name: "value", type: "uint256" },
-            { name: "nonce", type: "uint256" },
-            { name: "deadline", type: "uint256" },
-          ],
-        },
-        primaryType: "Permit",
-        message: {
-          owner: address,
-          spender: VAULT_ADDRESS,
-          value: amount,
-          nonce: nonce as bigint,
-          deadline,
-        },
-      } as const
-      const signature = await signTypedDataAsync(typedData)
-      const { v, r, s } = hexToSignature(signature)
-      const hash = await writeContractAsync({
-        abi: DEFAULT_NEUTRAL_VAULT_ABI,
-        address: VAULT_ADDRESS,
-        functionName: "depositWithPermit",
-        args: [amount, deadline, v, r, s],
-      })
-      setDepositTxHash(hash)
+      console.log("amount", amount)
+      // 1. Check if deposits are enabled
+      const { data: metricsRaw } = await refetchVaultMetrics()
+      console.log("metricsRaw", metricsRaw)
+      const metrics = metricsRaw as [bigint, bigint, bigint, bigint, boolean, boolean] | undefined
+      console.log("metrics", metrics)
+      if (!metrics?.[4]) throw new Error("Deposits are disabled")
+      // 2. Check current allowance
+      const currentAllowance = typeof allowance === "bigint" ? allowance : 0n
+      console.log("currentAllowance", currentAllowance)
+      // 3. Approve if needed
+      if (currentAllowance < amount) {
+        toast.info("Approving USDC...")
+        const approveHash = await handleApprove(amount)
+        await publicClient.waitForTransactionReceipt({ hash: approveHash })
+        await refetchAllowance()
+        toast.success("USDC approved successfully")
+      }
+      // 4. Execute deposit
+      toast.info("Depositing USDC...")
+      const depositHash = await handleDeposit(amount)
+      setDepositTxHash(depositHash)
       toast.info("Deposit transaction sent")
-    } catch (error) {
-      console.error("Deposit failed", error)
-      toast.error("Deposit failed")
+    } catch (error: any) {
+      console.error("Deposit process failed", error)
+      toast.error(`Deposit failed: ${error.shortMessage || error.message}`)
     } finally {
       setIsProcessing(false)
     }
@@ -383,8 +410,11 @@ export default function DashboardPage() {
                 className="mb-4"
               />
               <div className="flex gap-2">
-                <Button onClick={handleDeposit} disabled={isProcessing || !depositAmount}>
-                  {isDepositing ? "Depositing..." : "Deposit"}
+                <Button 
+                  onClick={handleApproveAndDeposit} 
+                  disabled={isProcessing || !depositAmount}
+                >
+                  {isProcessing ? "Processing..." : "Deposit"}
                 </Button>
                 <Button variant="outline" onClick={() => setDepositOpen(false)}>
                   Cancel
