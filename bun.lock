@@ -1,0 +1,13 @@
+{
+  "lockfileVersion": 1,
+  "workspaces": {
+    "": {
+      "dependencies": {
+        "@pythnetwork/pyth-sdk-solidity": "^4.1.0",
+      },
+    },
+  },
+  "packages": {
+    "@pythnetwork/pyth-sdk-solidity": ["@pythnetwork/pyth-sdk-solidity@4.1.0", "", {}, "sha512-SPqaWH1fKwYbdTsyTLGuSqCYDEEgCXw0SFW0KaOFRgzcGYcdZY/DYWhedCzFNb9lY/1RTk+ucgTtxO5e3Z1fIg=="],
+  }
+}
