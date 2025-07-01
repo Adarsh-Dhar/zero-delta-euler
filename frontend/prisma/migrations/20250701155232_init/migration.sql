@@ -1,0 +1,16 @@
+-- CreateTable
+CREATE TABLE "Pool" (
+    "id" TEXT NOT NULL,
+    "token0" TEXT NOT NULL,
+    "token1" TEXT NOT NULL,
+    "feeTier" DOUBLE PRECISION NOT NULL,
+    "tvl" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "volume24h" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "apr" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "concentration" TEXT NOT NULL,
+    "owner" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "Pool_pkey" PRIMARY KEY ("id")
+);
