@@ -14,7 +14,7 @@ import { QueryClientProvider, QueryClient } from "@tanstack/react-query";
 // You'll need to get a project ID from WalletConnect Cloud
 const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || "YOUR_PROJECT_ID";
 
-const config = getDefaultConfig({
+export const config = getDefaultConfig({
   appName: 'Zero-Delta Euler',
   projectId,
   chains: [sepolia],
