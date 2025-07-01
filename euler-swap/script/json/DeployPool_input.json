@@ -1,14 +1,14 @@
 {
-    "factory": "0xb013be1D0D380C13B58e889f412895970A2Cf228",
-    "vault0": "0xa66957e58b60d6b92b850c8773a9ff9b0ba96a65",
-    "vault1": "0x4212e01c7c8e1c21dea6030c74ae2084f5337bd1",
-    "equilibriumReserve0": 2000e6,
-    "equilibriumReserve1": 2000e6,
-    "priceX": 1e18,
-    "priceY": 1e18,
-    "concentrationX": 0.97e18,
-    "concentrationY": 0.97e18,
-    "currReserve0": 2000e6,
-    "currReserve1": 2000e6,
-    "fee": 0.01e18
-}
+    "factory": "0x45b146BC07c9985589B52df651310e75C6BE066A",
+    "vault0": "0x6eAe95ee783e4D862867C4e0E4c3f4B95AA682Ba",
+    "vault1": "0x1f3134C3f3f8AdD904B9635acBeFC0eA0D0E1ffC",
+    "equilibriumReserve0": "2000000000",
+    "equilibriumReserve1": "2000000000",
+    "priceX": "1000000000000000000",
+    "priceY": "1000000000000000000",
+    "concentrationX": "970000000000000000",
+    "concentrationY": "970000000000000000",
+    "currReserve0": "2000000000",
+    "currReserve1": "2000000000",
+    "fee": "10000000000000000" 
+  }
