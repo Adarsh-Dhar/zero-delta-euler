@@ -12,6 +12,10 @@ import { config } from '@/app/providers'
 
 // Deploys new AMM pool
 export async function deployPool(params: any, initialState: any, salt: Hex, account: Address) {
+    console.log("deployPool params", params)
+    console.log("deployPool initialState", initialState)
+    console.log("deployPool salt", salt)
+    console.log("deployPool account", account)
   const result = await writeContract(config, {
     address: FactoryAddress,
     abi: FactoryAbi,
