@@ -6,7 +6,10 @@ const prisma = new PrismaClient()
 // GET /api/pools/[id] - Get a single pool
 export async function GET(req: Request, { params }: { params: { id: string } }) {
   try {
-    const pool = await prisma.pool.findUnique({ where: { id: params.id } })
+    const pool = await (prisma.pool.findUnique as any)({ 
+      where: { id: params.id },
+      include: { transactions: true }
+    })
     if (!pool) return NextResponse.json({ error: "Pool not found" }, { status: 404 })
     return NextResponse.json(pool)
   } catch (error) {

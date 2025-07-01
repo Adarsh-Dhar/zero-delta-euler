@@ -24,6 +24,22 @@ model Pool {
   apr          Float    @default(0)
   concentration String
   owner        String
+  feesCollected Float   @default(0)
+  reserveRatios String  @default("")
+  ltvRatio     Float    @default(0)
+  lastRebalance DateTime?
+  transactions Transaction[]
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+}
+
+model Transaction {
+  id        String   @id @default(uuid())
+  pool      Pool     @relation(fields: [poolId], references: [id])
+  poolId    String
+  type      String
+  amount0   Float
+  amount1   Float
+  txHash    String
+  timestamp DateTime @default(now())
 }
