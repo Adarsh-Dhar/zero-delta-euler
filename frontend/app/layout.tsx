@@ -49,13 +49,14 @@ export default function RootLayout({
         "min-h-screen bg-gradient-to-br from-background via-background to-muted/20",
         inter.className
       )}>
+        <Providers>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
-          <Providers>
+          
             <Navigation />
             <main className="flex-1">{children}</main>
             <Toaster />
-          </Providers>
         </ThemeProvider>
+          </Providers>
         <UmamiAnalytics />
       </body>
     </html>
