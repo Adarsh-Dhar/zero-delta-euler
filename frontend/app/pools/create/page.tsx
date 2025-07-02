@@ -64,10 +64,22 @@ export default function PoolCreatePage() {
       const deployResult = await deployPool(params, initialState, salt, address as Address)
       console.log("deployResult", deployResult)
       // Only after confirmation, add to DB
+      if (!token0 || !token1 || !address || feeTier === undefined || concentration === undefined) {
+        setError("All fields are required for database entry.")
+        setLoading(false)
+        return
+      }
+      const apiPayload = {
+        token0: String(token0),
+        token1: String(token1),
+        feeTier: Number(feeTier),
+        concentration: String(concentration),
+        owner: String(address),
+      }
       const res = await fetch("/api/pools", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(params),
+        body: JSON.stringify(apiPayload),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || "Failed to add pool to DB")
