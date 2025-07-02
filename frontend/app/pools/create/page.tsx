@@ -11,8 +11,8 @@ import { Address } from "viem"
 
 export default function PoolCreatePage() {
   const { address, isConnected } = useAccount()
-  const [token0, setToken0] = useState("")
-  const [token1, setToken1] = useState("")
+  const [token0, setToken0] = useState("0x078D782b760474a361dDA0AF3839290b0EF57AD6")
+  const [token1, setToken1] = useState("0x4200000000000000000000000000000000000006")
   const [concentration, setConcentration] = useState("0.3%")
   const [feeTier, setFeeTier] = useState(0.3)
   const [loading, setLoading] = useState(false)
@@ -38,26 +38,36 @@ export default function PoolCreatePage() {
       setLoading(false)
       return
     }
-    const payload = {
-      token0: "0x078d782b760474a361dda0af3839290b0ef57ad6",
-      token1: "0x4200000000000000000000000000000000000006",
-      feeTier,
-      concentration,
-      owner: address,
+    // Construct params object matching IEulerSwap.Params
+    const params = {
+      vault0: token0, // For demo, use token0 address (should be vault address in real use)
+      vault1: token1, // For demo, use token1 address (should be vault address in real use)
+      eulerAccount: address,
+      equilibriumReserve0: 0,
+      equilibriumReserve1: 0,
+      priceX: 1,
+      priceY: 1,
+      concentrationX: 1,
+      concentrationY: 1,
+      fee: 0,
+      protocolFee: 0,
+      protocolFeeRecipient: address,
+    }
+    const initialState = {
+      currReserve0: 0,
+      currReserve1: 0,
     }
     try {
-      // Placeholder initialState and salt (replace with real logic as needed)
-      const initialState = {}
       const salt = "0x0000000000000000000000000000000000000000000000000000000000000000"
-      console.log("payload", payload)
+      console.log("params", params)
       // Deploy onchain first
-      const deployResult = await deployPool(payload, initialState, salt, address as Address)
+      const deployResult = await deployPool(params, initialState, salt, address as Address)
       console.log("deployResult", deployResult)
       // Only after confirmation, add to DB
       const res = await fetch("/api/pools", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(params),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || "Failed to add pool to DB")
