@@ -15,9 +15,9 @@ contract DeltaHedgerScript is Script {
     function run() public {
         vm.startBroadcast();
         // TODO: Replace these with actual deployed contract addresses or mocks for testing
-        IEVC evc = IEVC(address(0x1234)); // placeholder
-        IEulerSwap eulerSwap = IEulerSwap(address(0x2345)); // placeholder
-        IPerpetualExchange perpExchange = IPerpetualExchange(address(0x3456)); // placeholder
+        IEVC evc = IEVC(address(0x2A1176964F5D7caE5406B627Bf6166664FE83c60)); // placeholder
+        IEulerSwap eulerSwap = IEulerSwap(address(0x0dAA7a2eb668131E1B353Aaa4cb2E0CF6B66E8A8)); // placeholder
+        IPerpetualExchange perpExchange = IPerpetualExchange(address(0x5E89f8d81C74E311458277EA1Be3d3247c7cd7D1)); // placeholder
         deltaHedger = new DeltaHedger(evc, eulerSwap, perpExchange);
         vm.stopBroadcast();
     }
