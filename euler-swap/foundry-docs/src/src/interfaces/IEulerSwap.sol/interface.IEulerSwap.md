@@ -1,101 +1,12 @@
 # IEulerSwap
-[Git Source](https://github.com/euler-xyz/euler-swap/blob/7080c3fe0c9f935c05849a0756ed43d959130afd/src/interfaces/IEulerSwap.sol)
+[Git Source](https://github.com/euler-xyz/euler-maglev/blob/d6fc4adb9f1050f1348bfff5db3603f2482ba705/src/interfaces/IEulerSwap.sol)
 
 
 ## Functions
-### activate
-
-Performs initial activation setup, such as approving vaults to access the
-EulerSwap instance's tokens, enabling vaults as collateral, setting up Uniswap
-hooks, etc. This should only be invoked by the factory.
-
-
-```solidity
-function activate(InitialState calldata initialState) external;
-```
-
-### getParams
-
-Retrieves the pool's immutable parameters.
-
-
-```solidity
-function getParams() external view returns (Params memory);
-```
-
-### getAssets
-
-Retrieves the underlying assets supported by this pool.
-
-
-```solidity
-function getAssets() external view returns (address asset0, address asset1);
-```
-
-### getReserves
-
-Retrieves the current reserves from storage, along with the pool's lock status.
-
-
-```solidity
-function getReserves() external view returns (uint112 reserve0, uint112 reserve1, uint32 status);
-```
-**Returns**
-
-|Name|Type|Description|
-|----|----|-----------|
-|`reserve0`|`uint112`|The amount of asset0 in the pool|
-|`reserve1`|`uint112`|The amount of asset1 in the pool|
-|`status`|`uint32`|The status of the pool (0 = unactivated, 1 = unlocked, 2 = locked)|
-
-
-### computeQuote
-
-Generates a quote for how much a given size swap will cost.
-
-
-```solidity
-function computeQuote(address tokenIn, address tokenOut, uint256 amount, bool exactIn)
-    external
-    view
-    returns (uint256);
-```
-**Parameters**
-
-|Name|Type|Description|
-|----|----|-----------|
-|`tokenIn`|`address`|The input token that the swapper SENDS|
-|`tokenOut`|`address`|The output token that the swapper GETS|
-|`amount`|`uint256`|The quantity of input or output tokens, for exact input and exact output swaps respectively|
-|`exactIn`|`bool`|True if this is an exact input swap, false if exact output|
-
-**Returns**
-
-|Name|Type|Description|
-|----|----|-----------|
-|`<none>`|`uint256`|The quoted quantity of output or input tokens, for exact input and exact output swaps respectively|
-
-
-### getLimits
-
-Upper-bounds on the amounts of each token that this pool can currently support swaps for.
-
-
-```solidity
-function getLimits(address tokenIn, address tokenOut) external view returns (uint256 limitIn, uint256 limitOut);
-```
-**Returns**
-
-|Name|Type|Description|
-|----|----|-----------|
-|`limitIn`|`uint256`|Max amount of `tokenIn` that can be sold.|
-|`limitOut`|`uint256`|Max amount of `tokenOut` that can be bought.|
-
-
 ### swap
 
 Optimistically sends the requested amounts of tokens to the `to`
-address, invokes `eulerSwapCall` callback on `to` (if `data` was provided),
+address, invokes `uniswapV2Call` callback on `to` (if `data` was provided),
 and then verifies that a sufficient amount of tokens were transferred to
 satisfy the swapping curve invariant.
 
@@ -104,36 +15,163 @@ satisfy the swapping curve invariant.
 function swap(uint256 amount0Out, uint256 amount1Out, address to, bytes calldata data) external;
 ```
 
+### activate
+
+Approves the vaults to access the EulerSwap instance's tokens, and enables
+vaults as collateral. Can be invoked by anybody, and is harmless if invoked again.
+Calling this function is optional: EulerSwap can be activated on the first swap.
+
+
+```solidity
+function activate() external;
+```
+
+### verify
+
+Function that defines the shape of the swapping curve. Returns true iff
+the specified reserve amounts would be acceptable (ie it is above and to-the-right
+of the swapping curve).
+
+
+```solidity
+function verify(uint256 newReserve0, uint256 newReserve1) external view returns (bool);
+```
+
+### EVC
+
+Returns the address of the Ethereum Vault Connector (EVC) used by this contract.
+
+
+```solidity
+function EVC() external view returns (address);
+```
+**Returns**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`<none>`|`address`|The address of the EVC contract.|
+
+
+### curve
+
+
+```solidity
+function curve() external view returns (bytes32);
+```
+
+### vault0
+
+
+```solidity
+function vault0() external view returns (address);
+```
+
+### vault1
+
+
+```solidity
+function vault1() external view returns (address);
+```
+
+### asset0
+
+
+```solidity
+function asset0() external view returns (address);
+```
+
+### asset1
+
+
+```solidity
+function asset1() external view returns (address);
+```
+
+### eulerAccount
+
+
+```solidity
+function eulerAccount() external view returns (address);
+```
+
+### initialReserve0
+
+
+```solidity
+function initialReserve0() external view returns (uint112);
+```
+
+### initialReserve1
+
+
+```solidity
+function initialReserve1() external view returns (uint112);
+```
+
+### feeMultiplier
+
+
+```solidity
+function feeMultiplier() external view returns (uint256);
+```
+
+### getReserves
+
+
+```solidity
+function getReserves() external view returns (uint112 reserve0, uint112 reserve1, uint32 status);
+```
+
+### priceX
+
+
+```solidity
+function priceX() external view returns (uint256);
+```
+
+### priceY
+
+
+```solidity
+function priceY() external view returns (uint256);
+```
+
+### concentrationX
+
+
+```solidity
+function concentrationX() external view returns (uint256);
+```
+
+### concentrationY
+
+
+```solidity
+function concentrationY() external view returns (uint256);
+```
+
 ## Structs
 ### Params
-*Immutable pool parameters. Passed to the instance via proxy trailing data.*
-
 
 ```solidity
 struct Params {
     address vault0;
     address vault1;
     address eulerAccount;
-    uint112 equilibriumReserve0;
-    uint112 equilibriumReserve1;
+    uint112 debtLimit0;
+    uint112 debtLimit1;
+    uint256 fee;
+}
+```
+
+### CurveParams
+
+```solidity
+struct CurveParams {
     uint256 priceX;
     uint256 priceY;
     uint256 concentrationX;
     uint256 concentrationY;
-    uint256 fee;
-    uint256 protocolFee;
-    address protocolFeeRecipient;
-}
-```
-
-### InitialState
-*Starting configuration of pool storage.*
-
-
-```solidity
-struct InitialState {
-    uint112 currReserve0;
-    uint112 currReserve1;
 }
 ```
 

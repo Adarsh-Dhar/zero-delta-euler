@@ -52,7 +52,7 @@ forge doc --serve --port 4000
 
 On networks where Uniswap v4 is deployed, EulerSwap is deployed using a factory variant that creates Uniswap v4 hook compatible instances. Elsewhere, the original 'OG' version of EulerSwap factory is deployed.
 
-## With Uniswap v4 Hook
+### With Uniswap v4 Hook
 
 ### Mainnet (id: 1)
 
@@ -104,7 +104,7 @@ On networks where Uniswap v4 is deployed, EulerSwap is deployed using a factory 
 }
 ```
 
-## Without Uniswap v4 Hook
+### Without Uniswap v4 Hook
 
 ### Sonic (id: 146)
 
@@ -178,7 +178,7 @@ The EulerSwap pools are created by the `EulerSwapFactory` contract, which emits 
 
 Pools can also be uninstalled by LPs, for example during rebalancing, in which case the factory emits a [PoolUninstalled](https://github.com/euler-xyz/euler-swap/blob/1f73f5cb07f2e64e8c9815076749574b1b54e204/src/EulerSwapFactory.sol#L34) event.
 
-However, note that EulerSwap instances are installed on top of regular accounts within the Euler lending platform—they do not control these accounts. This means an LP can abandon an EulerSwap instance simply by withdrawing their position from the lending vaults. In such cases, the factory has no indication that the pool is no longer operational, but quoting functions will start reverting. If a pool continually fails to return quotes, it should likely be blacklisted.
+However, note that EulerSwap instances are installed on top of regular accounts within the Euler lending platform—they do not control these accounts. This means an LP can abandon an EulerSwap instance simply by withdrawing their position from the lending vaults. In such cases, the factory has no indication that the pool is no longer operational, but quoting functions or swap simulations will start reverting. If a pool continually fails to return quotes or reverts in simulation, it should likely be blacklisted.
 
 ## Safety
 

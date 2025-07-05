@@ -16,22 +16,37 @@ const PostDeploymentActions = () => {
   const { writeContractAsync } = useWriteContract();
   const [status, setStatus] = useState<string>('idle');
   const [contracts, setContracts] = useState<any>({});
-  const [usdcAmount, setUsdcAmount] = useState<string>('50000');
+  const [usdcAmount, setUsdcAmount] = useState<string>('0.00001');
+  const [loading, setLoading] = useState(true);
+  const [deltaHedgerMissing, setDeltaHedgerMissing] = useState(false);
 
   // Discover contract addresses
   useEffect(() => {
     const discoverAddresses = async () => {
-      if (!account || !chainId) return;
+      if (!account || !chainId) {
+        setLoading(false);
+        return;
+      }
       try {
-        // TODO: Replace with actual config import
-        const configObj = EULER_DEPLOYMENTS?.[chainId];
+        const configObj = EULER_DEPLOYMENTS;
         if (!configObj) throw new Error('Unsupported network');
-        // Get DeltaHedger address from local storage (set after deployment)
-        const deltaHedgerAddress = localStorage.getItem('deltaHedgerAddress') as `0x${string}`;
-        if (!deltaHedgerAddress) throw new Error('Deploy DeltaHedger first');
+        // Use EULER_DEPLOYMENTS as deltaHedgerAddress if not set in localStorage
+        let deltaHedgerAddress: string | null = null;
+        if (typeof window !== 'undefined') {
+          deltaHedgerAddress = localStorage.getItem('deltaHedgerAddress');
+          if (!deltaHedgerAddress && EULER_DEPLOYMENTS) {
+            localStorage.setItem('deltaHedgerAddress', EULER_DEPLOYMENTS);
+            deltaHedgerAddress = EULER_DEPLOYMENTS;
+          }
+        }
+        if (!deltaHedgerAddress) {
+          setDeltaHedgerMissing(true);
+          setLoading(false);
+          return;
+        }
         // Get EulerSwap address from DeltaHedger
         const eulerSwapAddress = await readContract(config, {
-          address: deltaHedgerAddress,
+          address: deltaHedgerAddress as `0x${string}`,
           abi: [{
             name: 'eulerSwap',
             type: 'function',
@@ -100,13 +115,34 @@ const PostDeploymentActions = () => {
           asset0,
           asset1,
         });
+        setDeltaHedgerMissing(false);
+        setLoading(false);
       } catch (error) {
         console.error('Address discovery failed:', error);
         setStatus('error');
+        setLoading(false);
       }
     };
     discoverAddresses();
   }, [account, chainId]);
+
+  if (loading) {
+    return (
+      <div className="max-w-2xl mx-auto p-6 bg-gray-50 rounded-xl shadow-sm text-center">
+        <h2 className="text-2xl font-bold mb-6">Post-Deployment Setup</h2>
+        <p>Loading contract information...</p>
+      </div>
+    );
+  }
+
+  if (deltaHedgerMissing) {
+    return (
+      <div className="max-w-2xl mx-auto p-6 bg-gray-50 rounded-xl shadow-sm text-center">
+        <h2 className="text-2xl font-bold mb-6">Post-Deployment Setup</h2>
+        <p className="text-red-500">DeltaHedger contract not found. Please deploy DeltaHedger first.</p>
+      </div>
+    );
+  }
 
   const executeSteps = async () => {
     if (!account) return;
@@ -122,13 +158,6 @@ const PostDeploymentActions = () => {
       });
       setStatus('operator-authorized');
       // 2. Vault Enablement
-      await writeContractAsync({
-        address: EVC_ADDRESS,
-        abi: EVC_ABI,
-        functionName: 'enableCollateral',
-        args: [account, contracts.vault0],
-        account,
-      });
       await writeContractAsync({
         address: EVC_ADDRESS,
         abi: EVC_ABI,
@@ -190,14 +219,16 @@ const PostDeploymentActions = () => {
         <input
           type="number"
           value={usdcAmount}
+          min="0.000001"
+          step="0.000001"
           onChange={(e) => setUsdcAmount(e.target.value)}
           className="w-full p-2 border rounded-md"
-          placeholder="50000"
+          placeholder="0.00001"
         />
-        <p className="text-sm text-gray-500 mt-1">Amount in USD (6 decimals)</p>
+        <p className="text-sm text-gray-500 mt-1">Amount in USD (6 decimals, e.g. 0.00001 = 10 units)</p>
       </div>
       <div className="space-y-3 mb-6">
-        <ContractInfo label="EVC Address" value={EVC_ADDRESS?.[chainId] || 'Loading...'} />
+        <ContractInfo label="EVC Address" value={EVC_ADDRESS || 'Loading...'} />
         <ContractInfo label="DeltaHedger" value={contracts.deltaHedger || 'Loading...'} />
         <ContractInfo label="EulerSwap" value={contracts.eulerSwap || 'Loading...'} />
         <ContractInfo label="Vault 0" value={contracts.vault0 || 'Loading...'} />

@@ -2,13 +2,13 @@
     "factory": "0x45b146BC07c9985589B52df651310e75C6BE066A",
     "vault0": "0x6eAe95ee783e4D862867C4e0E4c3f4B95AA682Ba",
     "vault1": "0x1f3134C3f3f8AdD904B9635acBeFC0eA0D0E1ffC",
-    "equilibriumReserve0": "2000000000",
+    "equilibriumReserve0": "10",
     "equilibriumReserve1": "2000000000",
     "priceX": "1000000000000000000",
     "priceY": "1000000000000000000",
     "concentrationX": "970000000000000000",
     "concentrationY": "970000000000000000",
-    "currReserve0": "2000000000",
+    "currReserve0": "10",
     "currReserve1": "2000000000",
     "fee": "10000000000000000" 
   }
